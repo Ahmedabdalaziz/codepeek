@@ -1,0 +1,15 @@
+[project]
+name = "codepeek"
+version = "0.1.0"
+description = "Extract readable source code from any GitHub repository"
+authors = [{ name = "Ahmed Abd Alzeez", email = "ahmedabdalziz.1886@gmail.com" }]
+readme = "README.md"
+license = { file = "LICENSE" }
+dependencies = ["requests", "tqdm"]
+
+[project.scripts]
+codepeek = "codepeek.cli:main"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
