@@ -8,11 +8,24 @@ load_dotenv()
 
 class AIAnalyzer:
     def __init__(self):
+        # ✅ حاول تحميل المفتاح من .env أو البيئة
         self.api_key = os.getenv("MISTRAL_API_KEY")
-        if not self.api_key:
-            raise ValueError("❌ MISTRAL_API_KEY not found in environment variables.")
 
-        self.model = "mistral-small"
+        # ✅ لو مفيش مفتاح، اطلبه من المستخدم أول مرة فقط
+        if not self.api_key:
+            print("\n════════════════════════════════════════")
+            print("🚀 Welcome to CodePeek 2.0")
+            print("════════════════════════════════════════\n")
+            print("👋 Hello! Let's set up your Mistral AI API key.\n")
+            self.api_key = input("🔑 Enter your MISTRAL_API_KEY: ").strip()
+
+            # حفظ المفتاح في .env للاستخدام المستقبلي
+            with open(".env", "w") as env_file:
+                env_file.write(f"MISTRAL_API_KEY={self.api_key}\n")
+            print("\n✅ API key saved successfully! 🎯\n")
+
+        # ✅ اختيار موديل متوافق مع المجاني
+        self.model = "open-mistral-7b"
         self.api_url = "https://api.mistral.ai/v1/chat/completions"
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -20,10 +33,10 @@ class AIAnalyzer:
         }
 
     def get_recommendations(self, summary_json: dict):
-        print("🧠 Sending project summary to Mistral for analysis...")
+        print("🧠 Sending project summary to Mistral for analysis...\n")
 
         prompt = """
-You are a **Senior Software Architect & Code Reviewer** specializing in Flutter,Andriod, IOS, front-end , backend, AI , and Clean Architecture design.
+You are a **Senior Software Architect & Code Reviewer** specializing in Flutter, Android, iOS, frontend, backend, AI, and Clean Architecture.
 
 Your job is to perform an in-depth technical review of this project summary.
 
@@ -35,15 +48,12 @@ Your job is to perform an in-depth technical review of this project summary.
 - Provide final recommendations for maintainability, testability, and performance.
 
 🚫 **Ignore Completely:**
-- Auto-generated code, build/ or .dart_tool/ or node_modules/, .gradle/, .idea/, etc.
+- Auto-generated code, build/, .dart_tool/, node_modules/, .gradle/, .idea/, etc.
 - Assets, fonts, images, icons, JSONs, or environment files that don't contain logic.
-- Boilerplate setup like main.dart with only MaterialApp.
 
 ✅ **Focus On:**
-- Files under `lib/`, `src/`, `core/`, `app/`, `data/`, `domain/`, `presentation/`.....etc.
-- Service classes, repository patterns, ViewModels, and widgets.
-- Whether dependency inversion is respected, if logic is leaking between layers, or if UI depends on data sources directly.
-- UI performance at all 
+- Files under lib/, src/, core/, app/, data/, domain/, presentation/, etc.
+- Service classes, repositories, ViewModels, widgets, and their architecture interactions.
 
 🧱 **SOLID Check Examples:**
 - SRP: Class handles multiple responsibilities.
@@ -53,18 +63,18 @@ Your job is to perform an in-depth technical review of this project summary.
 - DIP: UI directly calling repositories or APIs.
 
 🧩 **Design Pattern Examples:**
-Factory, Singleton, Strategy, Observer, Repository, Provider, Command, MVC/MVVM, Builder, Adapter.
+Factory, Singleton, Strategy, Observer, Repository, Provider, Command, MVC/MVVM, Builder, Adapter, Facade, Decorator.
 
 ⚔️ **Security Issues Examples:**
 - Hardcoded credentials.
 - Unencrypted API calls.
 - Unsanitized user input.
-- Lack of error handling exposing stack traces.
+- Exposed stack traces.
 - Storing sensitive data in plain text.
 
 🏗️ **Architecture Suggestions:**
-- Identify violations of Clean Architecture or MVVM principles.
-- Recommend improved layering, abstraction, or modularization.
+- Identify Clean Architecture or MVVM violations.
+- Suggest improved layering, modularization, and scalability.
 
 Return response strictly as **VALID JSON** (no text, no markdown), with this structure:
 {
@@ -86,6 +96,9 @@ Return response strictly as **VALID JSON** (no text, no markdown), with this str
 }
 """
 
+        # ============================
+        # إعداد الرسائل للـ Chat API
+        # ============================
         messages = [
             {"role": "system", "content": "You are a strict JSON-only code reviewer."},
             {"role": "user", "content": prompt + "\n\nProject Summary:\n" + json.dumps(summary_json)[:15000]}
@@ -98,17 +111,28 @@ Return response strictly as **VALID JSON** (no text, no markdown), with this str
             "max_tokens": 1800
         }
 
+        # ============================
+        # إرسال الطلب إلى API
+        # ============================
         response = requests.post(self.api_url, headers=self.headers, json=payload, timeout=180)
 
+        # ✅ طباعة رد السيرفر لو حصل خطأ
         if response.status_code != 200:
+            print("⚠️ Mistral Response:", response.status_code, response.text)
             raise Exception(f"Mistral API Error: {response.text}")
 
+        # ============================
+        # محاولة تحليل الرد JSON
+        # ============================
         try:
             text = response.json()["choices"][0]["message"]["content"]
             start = text.find("{")
             end = text.rfind("}") + 1
-            return json.loads(text[start:end])
+            parsed = json.loads(text[start:end])
+            print("✅ AI analysis completed successfully!\n")
+            return parsed
+
         except Exception as e:
             print("⚠️ Raw Response:")
-            print(text if 'text' in locals() else response.text)
+            print(response.text if response.text else "Empty response from Mistral.")
             raise Exception("Invalid or non-JSON response from Mistral.") from e
